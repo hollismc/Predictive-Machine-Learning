@@ -1,0 +1,112 @@
+---
+title: "predictive-machine-learning-project"
+author: "Hollismc"
+date: "2/15/2022"
+output: github_document
+```{r}
+#install.packages("credentials")
+library("credentials")
+credentials::set_github_pat(force_new = TRUE)
+```
+
+#Download libraries
+```{r}
+#install.packages(gbm)
+library(knitr)
+library(caret)
+library(kernlab)
+library(randomForest)
+library(rattle)
+library(gbm)
+```
+In order to predict the "manner in which they did the exercise", we used the "classe" variable as written in the project instructions. We first read the data into R with the code below, and then took a look at it.
+```{r}
+        #if(!file.exists("./data")) 
+        #fileurl1 = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+        #fileurl2 = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+        #download.file(fileurl1, destfile = "./data/training.csv", method = "curl")
+        #download.file(fileurl2, destfile = "./data/testing.csv", method = "curl")
+        testing = read.csv("./data/testing.csv")
+        training = read.csv("./data/training.csv")
+head(training)
+str(training)
+```
+#Preprocessing:
+# clean up data set and exclude near zero data 
+```{r}
+nzvcol <- nearZeroVar(training)
+training <- training[, -nzvcol]
+```
+# remove first 7 columns (not needed for predicting)
+```{r}
+train_1 <- training[,8:length(colnames(training))]
+test_1 <- testing[,8:length(colnames(testing))]
+```
+#remove columns with NAS
+```{r}
+trainfinal <- train_1[,colSums(is.na(train_1)) == 0]
+testfinal <- test_1[,colSums(is.na(test_1)) == 0]
+dim(trainfinal)
+```
+#set seed for reproducibility
+```{r}
+set.seed(5678)
+str(trainfinal)
+```
+#partition data into validation set
+```{r}
+train_2 <- createDataPartition(trainfinal$classe, p = 0.70, list = FALSE)
+training <- trainfinal[train_2,]
+validation <- trainfinal[-train_2,]
+```
+# model fit for random forest
+```{r}
+model <- trainControl(method = "cv", 5)
+modelfit <- train(classe ~ ., data = training, method = "rf", trControl = model, ntree = 251)
+print(modelfit)
+```
+#Predict
+```{r}
+predictval <- predict(modelfit, validation)
+confuse <- confusionMatrix(predictval, factor(validation$classe))
+confuse
+```
+#Plot
+```{r}
+plot(modelfit)
+```
+#Decision Trees
+```{r}
+modeltrees <- train(classe ~., data=training, method="rpart", trControl = model, tuneLength =5)
+fancyRpartPlot(modeltrees$finalModel)
+```
+#Prediction
+```{r}
+predicttrees <- predict(modeltrees, validation)
+confusetrees <- confusionMatrix(predicttrees, factor(validation$classe))
+confusetrees
+```
+#Generalized Boosted Model
+```{r}
+modelGBM <- train(classe ~., data = training, method = "gbm", trControl = model, tuneLength = 5, 
+                  verbose =FALSE)
+predGBM <- predict(modelGBM, validation)
+cmGbm <- confusionMatrix(predGBM,factor(validation$classe))
+```
+#Plot
+```{r}
+plot(modelGBM)
+```
+#Random Forest to Predict test Results
+#Quiz
+```{r}
+pred <- predict(modelfit, testing)
+print(pred)
+```
+
+
+
+
+
+
+
